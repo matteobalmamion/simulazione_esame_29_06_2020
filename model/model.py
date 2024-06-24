@@ -63,8 +63,9 @@ class Model:
 
     def getViciniAmmissibili(self, vicini, nMax, parziale, nodo):
         neigh = []
-        boolean = False
+
         for v in vicini:
+            boolean = False
             for i in range(len(parziale)-1):
                 if {parziale[-1], v} == {parziale[i], parziale[i+1]}:
                     boolean = True
