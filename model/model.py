@@ -42,30 +42,48 @@ class Model:
         parziale = [reg]
         self.ricorsione(parziale, nAttori, reg)
         print(self.solBest)
-
+        return self.solBest
     def ricorsione(self, parziale, nAttori, regista):
         vicini = list(self.graph.neighbors(regista))
-        if len(vicini) == 0:
+        viciniAmmissibili = self.getViciniAmmissibili(vicini, nAttori, parziale, regista)
+        if len(viciniAmmissibili) == 0:
             if len(parziale) == 1:
                 return
             if len(parziale) > len(self.solBest):
                 self.solBest = copy.deepcopy(parziale)
-        for v in vicini:
-            parziale.append(v)
+        for v in viciniAmmissibili:
             if self.vincoli(parziale, v, regista, nAttori):
+                parziale.append(v)
                 self.ricorsione(parziale, nAttori, v)
-            parziale.pop()
+                parziale.pop()
+        # if len(parziale) > len(self.solBest):
+        #     self.solBest = copy.deepcopy(parziale)
+        #     #print(self.solBest)
+
+
+    def getViciniAmmissibili(self, vicini, nMax, parziale, nodo):
+        neigh = []
+        boolean = False
+        for v in vicini:
+            for i in range(len(parziale)-1):
+                if {parziale[-1], v} == {parziale[i], parziale[i+1]}:
+                    boolean = True
+            if not boolean and self.calcolaLunghezza(parziale, nodo, v) <= nMax:
+                neigh.append(v)
+        return neigh
 
     def vincoli(self, parziale, v, nodo, nMax):
-        for i in range(len(parziale) - 1):
-            if {nodo, v} == {parziale[i], parziale[i+1]}:
-                return False
-        if self.calcolaLunghezza(parziale) > nMax:
+        # for i in range(len(parziale) - 1):
+        #     if {nodo, v} == {parziale[i], parziale[i+1]}:
+        #         return False
+
+        if self.calcolaLunghezza(parziale, nodo, v) > nMax:
             return False
+
         return True
 
-    def calcolaLunghezza(self, parziale):
-        tot = 0
+    def calcolaLunghezza(self, parziale, n, v):
+        tot = self.graph[n][v]["weight"]
         for p in range(len(parziale)-1):
             tot+= self.graph[parziale[p]][parziale[p+1]]["weight"]
         return tot
