@@ -10,86 +10,75 @@ from database.DAO import DAO
 
 class Model:
     def __init__(self):
-        self.graph = nx.Graph()
-        self.idMap = {}
-
-    def buildGraph(self, anno):
-        self.graph.clear()
-        nodes = DAO.getDirectors(anno)
-        self.graph.add_nodes_from(nodes)
-        for i in nodes:
-            self.idMap[i.id] = i
-        archi = DAO.getArchi(anno)
-        for a in archi:
-            self.graph.add_edge(self.idMap[a[0]], self.idMap[a[1]], weight= a[2])
-
-    def cercaRegistiAdiacenti(self, regista):
-        reg = self.idMap[regista]
-        vicini = self.graph.neighbors(reg)
-        dizio = {}
-        for v in vicini:
-            dizio[v] = self.graph[reg][v]["weight"]
-        dizioSorted = sorted(dizio, key=lambda x:dizio[x], reverse=True)
-        result = {}
-        for i in dizioSorted:
-            result[i] = self.graph[reg][i]["weight"]
-
-        return result
-
-    def calcolaPercorso(self, regista, nAttori):
-        reg = self.idMap[regista]
-        self.solBest = []
-        parziale = [reg]
-        self.ricorsione(parziale, nAttori, reg)
-        print(self.solBest)
-        return self.solBest
-    def ricorsione(self, parziale, nAttori, regista):
-        vicini = list(self.graph.neighbors(regista))
-        viciniAmmissibili = self.getViciniAmmissibili(vicini, nAttori, parziale, regista)
-        if len(viciniAmmissibili) == 0:
-            if len(parziale) == 1:
-                return
-            if len(parziale) > len(self.solBest):
-                self.solBest = copy.deepcopy(parziale)
-        for v in viciniAmmissibili:
-            if self.vincoli(parziale, v, regista, nAttori):
-                parziale.append(v)
-                self.ricorsione(parziale, nAttori, v)
-                parziale.pop()
-        # if len(parziale) > len(self.solBest):
-        #     self.solBest = copy.deepcopy(parziale)
-        #     #print(self.solBest)
+        self._grafo=nx.Graph()
+        self._idMap={}
 
 
-    def getViciniAmmissibili(self, vicini, nMax, parziale, nodo):
-        neigh = []
+    def getYears(self):
+        return [2004,2005,2006]
 
-        for v in vicini:
-            boolean = False
-            for i in range(len(parziale)-1):
-                if {parziale[-1], v} == {parziale[i], parziale[i+1]}:
-                    boolean = True
-            if not boolean and self.calcolaLunghezza(parziale, nodo, v) <= nMax:
-                neigh.append(v)
-        return neigh
+    def crea_grafo(self,year):
+        self._grafo.clear()
+        nodes=DAO.getDirectorsYear(year)
+        for node in nodes:
+            self._grafo.add_node(node)
+            self._idMap[node.id] = node
+        edges=DAO.getEdges(year)
+        for edge in edges:
+            self._grafo.add_edge(self._idMap[edge[0]],self._idMap[edge[1]], weight=edge[2])
+        return self._grafo.nodes
 
-    def vincoli(self, parziale, v, nodo, nMax):
-        # for i in range(len(parziale) - 1):
-        #     if {nodo, v} == {parziale[i], parziale[i+1]}:
-        #         return False
+    def descriviGrafo(self):
+        return f"Nodi: {len(self._grafo.nodes)} Archi: {len(self._grafo.edges)}"
 
-        if self.calcolaLunghezza(parziale, nodo, v) > nMax:
-            return False
+    def getAdiacenti(self,regista):
+        neighbors=self._grafo.neighbors(regista)
+        neighborsEdges=[]
+        for neighbor in neighbors:
+            neighborsEdges.append((regista,neighbor,self._grafo[neighbor][regista]))
+        return neighborsEdges
 
-        return True
+    def cercaRegistiAffini(self,nAttori,regista):
+        neighbors=self._grafo.neighbors(regista)
+        visitati=[regista]
+        self._solBest=[]
+        self._costBest=0
+        for neighbor in neighbors:
+            visitati.append(neighbor)
+            self._ricorsione(nAttori,visitati)
+            visitati.pop()
+        path=[]
+        for i in range(self._costBest):
+            if i == 0:
+                continue
+            v=self._solBest[i]
+            v0=self._solBest[i-1]
+            w=self._grafo.get_edge_data(v,v0)
+            path.append((v0,v,w))
+        return path
 
-    def calcolaLunghezza(self, parziale, n, v):
-        tot = self.graph[n][v]["weight"]
-        for p in range(len(parziale)-1):
-            tot+= self.graph[parziale[p]][parziale[p+1]]["weight"]
-        return tot
+    def _ricorsione(self,nAttori,visitati):
+        v0=visitati[-1]
+        neighborsll = list(self._grafo.neighbors(v0))
+        neighbors=[]
+        for nei in neighborsll:
+            if nei not in visitati:
+                neighbors.append(nei)
+        if self.sommActor(visitati)>=nAttori or len(neighbors)==0:
+            if self._costBest<len(visitati):
+                self._costBest=len(visitati)
+                self._solBest=copy.deepcopy(visitati)
+            return
+        for neighbor in neighbors:
+            if neighbor not in visitati:
+                visitati.append(neighbor)
+                self._ricorsione(nAttori,visitati)
+                visitati.pop()
 
-
-
-    def graphDetails(self):
-        return len(self.graph.nodes), len(self.graph.edges)
+    def sommActor(self,visitati):
+        sum=0
+        for i in range(len(visitati)):
+            if i==0:
+                continue
+            sum+=self._grafo[visitati[i]][visitati[i-1]]["weight"]
+        return sum

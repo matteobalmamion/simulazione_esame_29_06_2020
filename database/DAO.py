@@ -7,56 +7,36 @@ class DAO():
         pass
 
     @staticmethod
-    def getDirectors(anno):
-        conn = DBConnect.get_connection()
-
-        result = []
-
-        cursor = conn.cursor(dictionary=True)
-        query = """select distinct d.*
-                    from directors d , movies m , movies_directors md 
-                    where d.id = md.director_id 
-                    and m.id = md.movie_id 
-                    and m.`year` = %s"""
-
-        cursor.execute(query, (anno,))
-
+    def getDirectorsYear(year):
+        conn=DBConnect.get_connection()
+        result=[]
+        query="""select  distinct d.id, d.first_name ,d.last_name 
+from movies_directors md  ,directors d ,movies m 
+where d.id =md.director_id and m.id =md.movie_id and m.`year` =%s """
+        cursor=conn.cursor(dictionary=True)
+        cursor.execute(query,(year,))
         for row in cursor:
-            result.append(Director(**row))
-
+            result.append(Director(row["id"],row["first_name"],row["last_name"]))
         cursor.close()
         conn.close()
+
         return result
 
     @staticmethod
-    def getArchi(anno):
-        conn = DBConnect.get_connection()
+    def getEdges(year):
+            conn = DBConnect.get_connection()
+            result = []
+            query = """select md2.director_id as m0, md0.director_id as m2, count(r0.actor_id) as n
+from movies m0, movies m2 , movies_directors md0, movies_directors md2, roles r0, roles r2 
+where m2.`year` =m0.`year` and  m0.`year`=%s and m2.id =md2.movie_id and m0.id =md0.movie_id
+and r2.actor_id =r0.actor_id and r2.movie_id =m2.id and r0.movie_id=m0.id and md2.director_id != md0.director_id
+group by md2.director_id , md0.director_id """
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(query, (year,))
+            for row in cursor:
+                result.append((row["m0"],row["m2"],row["n"]))
+            cursor.close()
+            conn.close()
 
-        result = []
-
-        cursor = conn.cursor(dictionary=True)
-        query = """select d.id as id1, d2.id as id2, count(distinct a.id) as count
-                    from directors d , movies m , movies_directors md, roles r , actors a, directors d2 , movies m2 , movies_directors md2, roles r2 , actors a2
-                    where d.id = md.director_id 
-                    and m.id = md.movie_id 
-                    and a.id = r.actor_id 
-                    and r.movie_id = m.id 
-                    and m.`year` = %s
-                    and d2.id = md2.director_id 
-                    and m2.id = md2.movie_id 
-                    and a2.id = r2.actor_id 
-                    and r2.movie_id = m2.id 
-                    and m.`year` = m2.`year` 
-                    and a.id = a2.id 
-                    and d.id<d2.id 
-                    group by d.id, d2.id """
-
-        cursor.execute(query, (anno,))
-
-        for row in cursor:
-            result.append([row["id1"], row["id2"], row["count"]])
-
-        cursor.close()
-        conn.close()
-        return result
+            return result
 

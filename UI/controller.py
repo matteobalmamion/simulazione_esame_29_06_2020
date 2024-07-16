@@ -13,76 +13,44 @@ class Controller:
         self._model = model
 
     def fillDDAnno(self):
-        anni = [2004, 2005, 2006]
-        anniDD = list(map(lambda x: ft.dropdown.Option(x), anni))
-        self._view.ddAnno.options = anniDD
+        self._years=self._model.getYears()
+        for year in self._years:
+            self._view.ddAnno.options.append(ft.dropdown.Option(year))
         self._view.update_page()
-
-    def fillDDDirector(self):
-        self._view.ddDirector.options = []
-        registi = list(self._model.graph.nodes)
-        registiDD = list(map(lambda x: ft.dropdown.Option(key=x.id, text=x.first_name+" "+x.last_name), registi))
-        self._view.ddDirector.options = registiDD
-        self._view.update_page()
-
 
     def handleCreaGrafo(self, e):
-        self.anno = self._view.ddAnno.value
-        if self.anno is None:
-                self._view.create_alert("Anno non inserito")
-                self._view.txtResult.clean()
-                self._view.update_page()
-                return
-        self._model.buildGraph(self.anno)
-        self.fillDDDirector()
-        self._view.btnRegistiAdiacenti.disabled = False
-        self._view.btnRegistiAffini.disabled = False
-        n, e = self._model.graphDetails()
-        self._view.txtResult.clean()
-        self._view.txtResult.controls.append(ft.Text(f"Il grafo ha {n} nodi e {e} archi"))
+        year=self._view.ddAnno.value
+        nodes=self._model.crea_grafo(year)
+        self._view.txtResult.controls.append(ft.Text(self._model.descriviGrafo()))
+        self._view.ddDirector.enabled=False
+        self._view.btnRegistiAdiacenti.disabled=False
+        self._view.btnRegistiAffini.disabled=False
+        for node in nodes:
+            self._view.ddDirector.options.append(ft.dropdown.Option(text=node, data=node,on_click=self.readDDRegist))
         self._view.update_page()
 
+    def readDDRegist(self,e):
+        if e.control.data is None:
+            self._selectedRegista=None
+        else:
+            self._selectedRegista=e.control.data
+        print(f"redDDTems called -- {self._selectedRegista}")
+
     def handleRegistiAdiacenti(self, e):
-        self.regista = int(self._view.ddDirector.value)
-        if self.anno is None:
-                self._view.create_alert("Regista non inserito")
-                self._view.update_page()
-                return
-        result = self._model.cercaRegistiAdiacenti(self.regista)
         self._view.txtResult.clean()
-        self._view.txtResult.controls.append(ft.Text(f"Registi adiacenti a: {self._model.idMap[self.regista].id}-{self._model.idMap[self.regista].first_name} {self._model.idMap[self.regista].last_name}"))
-        for i in result:
-            self._view.txtResult.controls.append(ft.Text(f"{i.id}-{i.first_name} {i.last_name} - # attori condivisi: {result[i]}"))
+        adiacenti=self._model.getAdiacenti(self._selectedRegista)
+        for edge in adiacenti:
+            (self._view.txtResult.controls.append(ft.Text(f" {edge[1]}: attori condivisi {edge[2]["weight"]}")))
         self._view.update_page()
 
     def handleRegistiAffini(self, e):
-        self.attoriCondivisi = self._view.attoriCondivisi.value
-        if self.anno is "":
-                self._view.create_alert("Numero di attori condivisi non inserito")
-                self._view.update_page()
-                return
         try:
-            attInt = int(self.attoriCondivisi)
+            self._nattori=int(self._view.attoriCondivisi.value)
         except ValueError:
-            self._view.create_alert("Numero di attori condivisi inserito non numerico")
+            (self._view.txtResult.controls.append(ft.Text(f" Errore, inserire un numero")))
             self._view.update_page()
             return
-
-        self.regista = int(self._view.ddDirector.value)
-        if self.anno is None:
-            self._view.create_alert("Regista non inserito")
-            self._view.update_page()
-            return
-
-        solBest = self._model.calcolaPercorso(self.regista, attInt)
-        tot = 0
-        for i in range(len(solBest)-1):
-            tot+=self._model.graph[solBest[i]][solBest[i+1]]["weight"]
-        self._view.txtResult.controls.append(ft.Text(f"Cammino massimo con lunghezza {tot}"))
-        for a in solBest:
-            self._view.txtResult.controls.append(ft.Text(f"{a}"))
+        path=self._model.cercaRegistiAffini(self._nattori, self._selectedRegista)
+        for edge in path:
+            self._view.txtResult.controls.append(ft.Text(f"{edge[0]} --> {edge[1]}: {edge[2]}"))
         self._view.update_page()
-
-
-
-
